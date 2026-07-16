@@ -76,7 +76,12 @@ assert_eq "3-F" "b" "$out"
 
 # 4. Pattern match
 echo "==> 4. Pattern match"
-out="$(printf 'foo\nbar\nbaz\n' | "$MAWK" '/bar/{print "match"}')"
+# Use a file (not inline) to avoid bash brace expansion eating
+# the { } in the awk script (especially in cmd substitution).
+cat > "$TMP/p.awk" <<'EOF'
+/bar/ { print "match" }
+EOF
+out="$(printf 'foo\nbar\nbaz\n' | "$MAWK" -f "$TMP/p.awk")"
 assert_eq "4-pattern" "match" "$out"
 
 # 5. BEGIN / END blocks
