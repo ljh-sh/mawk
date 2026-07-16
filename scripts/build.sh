@@ -84,12 +84,20 @@ fi
 # Out-of-tree build.
 mkdir -p "$BUILD_DIR"
 
+# mawk's Makefile rules (parse.c, etc.) use plain 'parse.y' (not
+# $(srcdir)/parse.y), so out-of-tree builds can't find the source.
+# We do an in-tree build (configure + make inside $SRC), then
+# copy the binary out to BUILD_DIR for package.sh to stage.
 echo "==> configure: $SRC/configure $CONFIGURE_ARGS"
 echo "    CC=${CC:-cc}  CFLAGS=${CFLAGS:-default}  LDFLAGS=${LDFLAGS:-default}"
-( cd "$BUILD_DIR" && "$SRC/configure" $CONFIGURE_ARGS )
+( cd "$SRC" && ./configure $CONFIGURE_ARGS )
 
-echo "==> make -j$JOBS"
-make -C "$BUILD_DIR" -j"$JOBS"
+echo "==> make -j$JOBS in $SRC"
+make -C "$SRC" -j"$JOBS" -s 2>&1 | tail -3
+
+# Copy built binary to BUILD_DIR for package.sh to stage.
+[ -x "$SRC/mawk" ] && cp "$SRC/mawk" "$BUILD_DIR/mawk"
+[ -x "$SRC/mawk.exe" ] && cp "$SRC/mawk.exe" "$BUILD_DIR/mawk.exe"
 
 # Verify the binary exists and is executable.
 BIN="$BUILD_DIR/mawk"
