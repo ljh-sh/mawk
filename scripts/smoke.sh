@@ -111,7 +111,10 @@ assert_eq "9-stringfn" "HELLO 5" "$out"
 
 # 10. Redirection (write to stdout)
 echo "==> 10. Redirection"
-out="$(printf 'a\nb\nc\n' | "$MAWK" '{print $1 "!"}')"
+cat > "$TMP/r.awk" <<'EOF'
+{ print $1 "!" }
+EOF
+out="$(printf 'a\nb\nc\n' | "$MAWK" -f "$TMP/r.awk")"
 assert_eq "10-redirect" "$(printf 'a!\nb!\nc!')" "$out"
 
 echo
