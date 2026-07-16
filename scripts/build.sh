@@ -93,7 +93,7 @@ echo "    CC=${CC:-cc}  CFLAGS=${CFLAGS:-default}  LDFLAGS=${LDFLAGS:-default}"
 ( cd "$SRC" && ./configure $CONFIGURE_ARGS )
 
 echo "==> make -j$JOBS in $SRC"
-make -C "$SRC" -j"$JOBS" -s 2>&1 | tail -3
+make -C "$SRC" -j"$JOBS" 2>&1 | tail -10
 
 # Copy built binary to BUILD_DIR for package.sh to stage.
 [ -x "$SRC/mawk" ] && cp "$SRC/mawk" "$BUILD_DIR/mawk"
