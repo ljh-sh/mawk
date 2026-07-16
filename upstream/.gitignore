@@ -1,0 +1,20 @@
+# Ignore autoreconf TEMPORARY artifacts in the vendored upstream tree.
+# These are generated every time build.sh runs autoreconf and must NOT be
+# committed (would corrupt vendor integrity: byte-for-byte from tarball).
+#
+# DO NOT ignore the build-aux/ scripts (install-sh, compile, depcomp,
+# missing, etc.) — those are part of the autotools distribution and are
+# REQUIRED by configure. They live in build-aux/ in the tarball.
+#
+# What to ignore:
+#   - autom4te.cache/  (autoconf cache, regenerated every build)
+#   - configure~       (backup of configure before regeneration)
+#   - config_h.in~     (backup of config_h.in)
+autom4te.cache/
+configure~
+config_h.in~
+*.o
+*.lo
+*.a
+.deps/
+.libs/

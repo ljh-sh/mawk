@@ -1,0 +1,209 @@
+name: release
+
+# Publish stage: tag v* or trigger manually → GitHub Release with
+# per-target tarball + per-archive sha256 + top-level SHA256SUMS.
+#
+# Splits cleanly with build-and-test.yml:
+#   - push / pull_request → build-and-test.yml (auto-test stage)
+#   - tag push / dispatch → THIS workflow (publish stage)
+#
+# Matrix identical to build-and-test.yml so a tag push produces a
+# release in one shot, without depending on workflow_run.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-linux-glibc,    runner: ubuntu-latest,    os: linux, libc: glibc }
+          - { target: aarch64-linux-glibc,   runner: ubuntu-24.04-arm, os: linux, libc: glibc }
+          - { target: x86_64-alpine-musl,    runner: ubuntu-latest,    os: linux, libc: musl, docker_arch: amd64 }
+          - { target: aarch64-alpine-musl,   runner: ubuntu-24.04-arm, os: linux, libc: musl, docker_arch: arm64 }
+          - { target: aarch64-macos,         runner: macos-14,         os: macos }
+          - { target: x86_64-macos,          runner: macos-14,         os: macos }
+          - { target: x86_64-windows,        runner: windows-latest,   os: windows }
+          - { target: aarch64-windows,       runner: windows-11-arm,   os: windows }
+    continue-on-error: ${{ matrix.target == 'aarch64-windows' || matrix.target == 'x86_64-windows' }}
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps (Linux glibc)
+        if: matrix.libc == 'glibc'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake libtool make gcc
+
+      - name: Install deps (Linux musl — Alpine docker)
+        if: matrix.libc == 'musl'
+        run: |
+          docker run --rm --platform linux/${{ matrix.docker_arch }} \
+            -v "$PWD":/w -w /w alpine:3.20 sh -c '
+              apk add --no-cache bash make gcc musl-dev file binutils 2>&1 | tail -1
+              export TARGET=x86_64-alpine-musl
+              bash /w/scripts/build.sh
+              bash /w/scripts/smoke.sh
+            '
+
+      - name: Install deps (macOS)
+        if: matrix.os == 'macos'
+        run: |
+          brew update
+          brew install autoconf automake libtool
+
+      - name: Install deps (Windows MSYS2 + mingw64)
+        if: matrix.os == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git autoconf automake libtool
+            make base-devel gcc
+            mingw-w64-x86_64-gcc
+
+      - name: Build (Linux glibc — host)
+        if: matrix.libc == 'glibc'
+        run: bash scripts/build.sh
+
+      - name: Build (macOS — host aarch64)
+        if: matrix.os == 'macos' && matrix.target == 'aarch64-macos'
+        run: bash scripts/build.sh
+
+      - name: Build (macOS — cross to x86_64)
+        if: matrix.target == 'x86_64-macos'
+        env:
+          MAWK_TARGET_ARCH: x86_64
+          MAWK_TARGET_OS: apple-darwin
+          MAWK_OS_HINT: darwin
+        run: bash scripts/build.sh
+
+      - name: Build (Windows x86_64 — msys2 bash)
+        if: matrix.os == 'windows' && matrix.target == 'x86_64-windows'
+        shell: msys2 {0}
+        run: bash scripts/build.sh
+
+      - name: Build (Windows aarch64 — cross via clang)
+        if: matrix.target == 'aarch64-windows'
+        shell: msys2 {0}
+        env:
+          MAWK_TARGET_ARCH: aarch64
+          MAWK_TARGET_OS: windows-gnu
+          MAWK_OS_HINT: windows
+          CC: clang
+        run: bash scripts/build.sh
+
+      - name: Smoke test (Linux glibc)
+        if: matrix.libc == 'glibc'
+        run: bash scripts/smoke.sh
+
+      - name: Smoke test (macOS)
+        if: matrix.os == 'macos'
+        run: bash scripts/smoke.sh
+
+      - name: Smoke test (Windows)
+        if: matrix.os == 'windows'
+        shell: msys2 {0}
+        run: bash scripts/smoke.sh
+
+      - name: Package (Linux / macOS)
+        if: matrix.os != 'windows'
+        run: TARGET=${{ matrix.target }} bash scripts/package.sh
+
+      - name: Package (Windows)
+        if: matrix.os == 'windows'
+        shell: msys2 {0}
+        env:
+          TARGET: ${{ matrix.target }}
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1
+
+      - name: Verify binary runs
+        if: matrix.os != 'windows'
+        run: |
+          bin="dist/mawk-${{ matrix.target }}/bin/mawk"
+          file "$bin"
+          du -h dist/mawk-${{ matrix.target }}.tar.xz
+          "$bin" --version | head -1
+
+      - name: Verify (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/mawk-${{ matrix.target }}.zip | Format-Table Name, Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mawk-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v') && needs.build.result == 'success'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate SHA256SUMS
+        run: |
+          cd dist
+          find . -type f \( -name '*.tar.xz' -o -name '*.zip' \) -print0 \
+            | xargs -0 sha256sum | sed 's|^\([^ ]*\)  \./|\1  |' > SHA256SUMS
+          cat SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.xz
+            dist/*.zip
+            dist/*.sha256
+            dist/SHA256SUMS
+          generate_release_notes: true
+          body: |
+            ## ljh-sh/mawk v${{ github.ref_name }}
+
+            Single-binary, multi-platform build of mawk 1.3.4 (vendored
+            from the official source archive at
+            `invisible-island.net/mawk/`). mawk has no external library
+            dependencies — only libc + libm are required at runtime.
+
+            ### Install
+
+            ```sh
+            x eget ljh-sh/mawk    # one-line install, auto-detects arch + PATH
+            ```
+
+            ### Targets
+
+            | target | archive | layout | runner |
+            |--------|---------|--------|--------|
+            | x86_64-linux-glibc | `.tar.xz` | bin/ + man/ | ubuntu-latest |
+            | aarch64-linux-glibc | `.tar.xz` | bin/ + man/ | ubuntu-24.04-arm |
+            | x86_64-alpine-musl | `.tar.xz` | bin/ + man/ | alpine:3.20 docker |
+            | aarch64-alpine-musl | `.tar.xz` | bin/ + man/ | alpine:3.20 docker |
+            | aarch64-macos | `.tar.xz` | bin/ + man/ | macos-14 |
+            | x86_64-macos | `.tar.xz` | bin/ + man/ | macos-14 (cross) |
+            | x86_64-windows | `.zip` | bin/ (DLLs co-located) | windows-latest *(deferred)* |
+            | aarch64-windows | `.zip` | bin/ (DLLs co-located) | windows-11-arm *(deferred)* |
+
+            Windows builds are deferred (MSYS2 ships its own `mawk`
+            package, so Windows users have access via `pacman -S mawk`).
+
+            See `AUDIT-2026-07-16.md` for the source-level security review.
