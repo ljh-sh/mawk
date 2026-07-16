@@ -92,6 +92,19 @@ echo "==> configure: $SRC/configure $CONFIGURE_ARGS"
 echo "    CC=${CC:-cc}  CFLAGS=${CFLAGS:-default}  LDFLAGS=${LDFLAGS:-default}"
 ( cd "$SRC" && ./configure $CONFIGURE_ARGS )
 
+# Touch pre-generated parse.c/parse.h to be newer than parse.y, so
+# make doesn't regenerate them. The pre-generated files in the
+# tarball are produced by upstream maintainer Thomas E. Dickey
+# using his bison. Newer bison (3.8.x) on mingw produces a
+# `parse()` function that conflicts with the hand-written
+# `parse(void)` in parse.y's C trailer (line 1499), causing
+# redefinition errors. Using the upstream-generated files
+# avoids this bison-version-dependent bug.
+if [ -f "$SRC/parse.c" ] && [ -f "$SRC/parse.h" ] && [ -f "$SRC/parse.y" ]; then
+	touch "$SRC/parse.c" "$SRC/parse.h"
+	echo "==> using pre-generated parse.c/parse.h (skipping bison regen)"
+fi
+
 echo "==> make -j$JOBS in $SRC"
 make -C "$SRC" -j"$JOBS" 2>&1 | tail -10
 
