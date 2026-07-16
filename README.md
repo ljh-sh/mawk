@@ -53,12 +53,14 @@ bundled `lib/` directory — just `bin/mawk` + man pages.
 | `aarch64-alpine-musl` | `ubuntu-24.04-arm` + `alpine:3.20` docker | musl dynamic | `.tar.xz` |
 | `aarch64-macos` | `macos-14` | dynamic, system libc | `.tar.xz` |
 | `x86_64-macos` | `macos-14` (cross from aarch64) | dynamic, system libc | `.tar.xz` |
-| `x86_64-windows` | `windows-latest` + MSYS2 + mingw64 | dynamic | `.zip` *(deferred)* |
+| `x86_64-windows` | `windows-latest` + MSYS2 + mingw64 | dynamic | `.zip` |
 | `aarch64-windows` | `windows-11-arm` + MSYS2 + mingw64 | dynamic | `.zip` *(deferred)* |
 
-> Windows builds are currently deferred (tracked in issue tracker).
-> MSYS2 ships its own `mingw-w64-x86_64-mawk` package, so Windows
-> users already have access to a working build via `pacman -S mawk`.
+> `aarch64-windows` is deferred (MSYS2 mingw64 cross-compile to
+> aarch64 has known issues with the autotools-generated Makefile).
+> x86_64-windows works; MSYS2 also ships its own
+> `mingw-w64-x86_64-mawk` package, so Windows users have multiple
+> install paths (`x eget ljh-sh/mawk` or `pacman -S mawk`).
 
 ## Build configuration
 

@@ -36,7 +36,7 @@ jobs:
           - { target: x86_64-macos,          runner: macos-14,         os: macos }
           - { target: x86_64-windows,        runner: windows-latest,   os: windows }
           - { target: aarch64-windows,       runner: windows-11-arm,   os: windows }
-    continue-on-error: ${{ matrix.target == 'aarch64-windows' || matrix.target == 'x86_64-windows' }}
+    continue-on-error: ${{ matrix.target == 'aarch64-windows' }}
     env:
       TARGET: ${{ matrix.target }}
     steps:
@@ -73,7 +73,7 @@ jobs:
           msystem: MINGW64
           update: true
           install: >-
-            git autoconf automake libtool
+            git autoconf automake libtool bison
             make base-devel gcc
             mingw-w64-x86_64-gcc
 
