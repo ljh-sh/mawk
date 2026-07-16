@@ -53,7 +53,10 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 assert_eq() { # $1=label  $2=expected  $3=actual
-	if [ "$2" = "$3" ]; then
+	# Strip trailing CR (Windows) + normalize newlines for compare.
+	expected_norm=$(printf '%s' "$2" | tr -d '\r')
+	actual_norm=$(printf '%s' "$3" | tr -d '\r')
+	if [ "$expected_norm" = "$actual_norm" ]; then
 		echo "    OK [$1]: $3"
 	else
 		echo "FAIL [$1]: expected '$2', got '$3'" >&2
