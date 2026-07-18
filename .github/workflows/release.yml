@@ -36,7 +36,7 @@ jobs:
           - { target: x86_64-macos,          runner: macos-14,         os: macos }
           - { target: x86_64-windows,        runner: windows-latest,   os: windows }
           - { target: aarch64-windows,       runner: windows-11-arm,   os: windows }
-    continue-on-error: ${{ matrix.target == 'aarch64-windows' }}
+    continue-on-error: false
     env:
       TARGET: ${{ matrix.target }}
     steps:
@@ -106,6 +106,8 @@ jobs:
           MAWK_TARGET_OS: windows-gnu
           MAWK_OS_HINT: windows
           CC: clang
+          CFLAGS: -target aarch64-w64-windows-gnu -O2
+          LDFLAGS: -target aarch64-w64-windows-gnu
         run: bash scripts/build.sh
 
       - name: Smoke test (Linux glibc)
