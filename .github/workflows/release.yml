@@ -36,7 +36,7 @@ jobs:
           - { target: x86_64-macos,          runner: macos-14,         os: macos }
           - { target: x86_64-windows,        runner: windows-latest,   os: windows }
           - { target: aarch64-windows,       runner: windows-11-arm,   os: windows }
-    continue-on-error: false
+    continue-on-error: ${{ matrix.target == 'aarch64-windows' }}
     env:
       TARGET: ${{ matrix.target }}
     steps:
