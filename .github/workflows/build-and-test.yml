@@ -107,16 +107,15 @@ jobs:
         shell: msys2 {0}
         run: bash scripts/build.sh
 
-      - name: Build (Windows aarch64 — cross via clang)
+      - name: Build (Windows aarch64 — cross via mingw cross-toolchain)
         if: matrix.target == 'aarch64-windows'
         shell: msys2 {0}
         env:
           MAWK_TARGET_ARCH: aarch64
           MAWK_TARGET_OS: windows-gnu
           MAWK_OS_HINT: windows
-          CC: clang
-          CFLAGS: -target aarch64-w64-windows-gnu -O2
-          LDFLAGS: -target aarch64-w64-windows-gnu
+          # No CC override — let build.sh use aarch64-w64-mingw32-gcc
+          # from mingw-w64-cross-toolchain-aarch64 (installed below).
         run: bash scripts/build.sh
 
       # ---- smoke ----
