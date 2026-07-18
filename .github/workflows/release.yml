@@ -76,7 +76,6 @@ jobs:
             git autoconf automake libtool bison
             make base-devel gcc
             mingw-w64-x86_64-gcc
-            mingw-w64-cross-toolchain-aarch64
 
       - name: Build (Linux glibc — host)
         if: matrix.libc == 'glibc'
@@ -99,13 +98,16 @@ jobs:
         shell: msys2 {0}
         run: bash scripts/build.sh
 
-      - name: Build (Windows aarch64 — cross via mingw cross-toolchain)
+      - name: Build (Windows aarch64 — cross via clang)
         if: matrix.target == 'aarch64-windows'
         shell: msys2 {0}
         env:
           MAWK_TARGET_ARCH: aarch64
           MAWK_TARGET_OS: windows-gnu
           MAWK_OS_HINT: windows
+          CC: clang
+          CFLAGS: -target aarch64-w64-windows-gnu -O2
+          LDFLAGS: -target aarch64-w64-windows-gnu
         run: bash scripts/build.sh
 
       - name: Smoke test (Linux glibc)
