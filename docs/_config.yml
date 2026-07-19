@@ -1,0 +1,12 @@
+title: mawk
+description: mawk 1.3.4 的静态构建 (含 bundled .so + RPATH 跨平台便携)
+repo: mawk
+baseurl: ""
+url: "https://mawk.ljh.sh"
+theme: ~
+
+permalink: pretty
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
